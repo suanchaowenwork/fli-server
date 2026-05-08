@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -9,6 +9,7 @@ from fli.models import (
     FlightSearchFilters, FlightSegment, DateSearchFilters
 )
 from fli.search import SearchFlights, SearchDates
+from airports import search_airports
 
 app = FastAPI(title="Fli API", description="API de vuelos con Google Flights")
 
@@ -34,7 +35,20 @@ class SearchFlightsRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "fli-server", "timestamp": datetime.now().isoformat()}
+
+@app.get("/airports/search")
+def get_airports(q: str = Query(..., min_length=1), limit: int = Query(10, ge=1, le=20)):
+    """Busca aeropuertos por nombre, ciudad o código IATA"""
+    results = search_airports(q, limit)
+    return {"airports": results, "count": len(results), "query": q}
+
+@app.get("/airports/popular")
+def get_popular_airports():
+    """Devuelve los aeropuertos más populares"""
+    from airports import AIRPORTS
+    popular = [a for a in AIRPORTS if a["iata"] in ["BOG", "MDE", "CTG", "MIA", "MCO", "JFK", "CUN", "MEX", "MAD", "CDG", "LHR", "BCN"]]
+    return {"airports": popular}
 
 @app.post("/search-flights")
 def search_flights(req: SearchFlightsRequest):
@@ -53,9 +67,9 @@ def search_flights(req: SearchFlightsRequest):
         dest_airport = getattr(Airport, req.destination, None)
         
         if not origin_airport:
-            raise HTTPException(status_code=400, detail=f"Aeropuerto origen '{req.origin}' no encontrado")
+            raise HTTPException(status_code=400, detail=f"Aeropuerto origen '{req.origin}' no encontrado. Usa /airports/search para buscar.")
         if not dest_airport:
-            raise HTTPException(status_code=400, detail=f"Aeropuerto destino '{req.destination}' no encontrado")
+            raise HTTPException(status_code=400, detail=f"Aeropuerto destino '{req.destination}' no encontrado. Usa /airports/search para buscar.")
 
         segments = [
             FlightSegment(
