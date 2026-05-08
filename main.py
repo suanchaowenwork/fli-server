@@ -59,8 +59,8 @@ def search_flights(req: SearchFlightsRequest):
 
         passenger_info = PassengerInfo(
             adults=req.adults,
-            children=req.children if req.children > 0 else None,
-            seniors=req.seniors if req.seniors > 0 else None,
+            children=req.children,
+            seniors=req.seniors,
         )
 
         origin_airport = getattr(Airport, req.origin, None)
